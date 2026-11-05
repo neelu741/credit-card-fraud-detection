@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credit Card Fraud Detection System</title>
+  
+  <!-- Plotly.js for interactive native charts (identical to Streamlit plotly) -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Layout: Sidebar + Main Content -->
+  <div class="app-layout">
+    
+    <!-- Left Sidebar (Matching Streamlit sidebar) -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="sidebar-icon">💳</span>
+        <div>
+          <h2 class="sidebar-title">Fraud Guard ML</h2>
+          <p class="sidebar-subtitle">Intelligent Transaction Screening</p>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <label for="select-model" class="sidebar-label">Select ML Algorithm</label>
+        <select id="select-model" class="sidebar-select">
+          <option value="best" selected>⭐ Best Overall Model (Tuned XGBoost)</option>
+          <option value="xgb_weighted">XGBoost (Cost-Sensitive Weighted)</option>
+          <option value="rf_weighted">Random Forest (Class Weighted)</option>
+          <option value="lr_weighted">Logistic Regression (Class Weighted)</option>
+          <option value="xgb_smote">XGBoost + SMOTE</option>
+          <option value="lr_smote">Logistic Regression + SMOTE</option>
+        </select>
+        <span class="sidebar-help">Compare models trained with Class Weighting vs SMOTE</span>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-slider-header">
+          <label for="global-threshold" class="sidebar-label">Decision Threshold (θ)</label>
+          <span id="global-threshold-val" class="sidebar-badge">0.12</span>
+        </div>
+        <input type="range" id="global-threshold" min="0.01" max="0.95" step="0.01" value="0.12" class="sidebar-slider">
+        <div class="sidebar-slider-marks">
+          <span>0.01</span>
+          <span>0.12 (Opt)</span>
+          <span>0.50 (Def)</span>
+          <span>0.95</span>
+        </div>
+        <div class="sidebar-thresh-btns">
+          <button type="button" class="btn-thresh-snap" id="btn-thresh-012">Optimal θ = 0.12</button>
+          <button type="button" class="btn-thresh-snap" id="btn-thresh-050">Default θ = 0.50</button>
+        </div>
+        <span class="sidebar-help">Txns with predicted probability ≥ θ are flagged as Suspicious/Fraud.</span>
+      </div>
+
+      <hr class="sidebar-divider">
+
+      <div class="sidebar-section">
+        <h4 class="sidebar-heading">System Information</h4>
+        <ul class="sidebar-info-list">
+          <li>• Dataset Sample: <strong id="info-dataset-rows">283,726 rows</strong></li>
+          <li>• Baseline Fraud Rate: <strong id="info-fraud-rate">0.173%</strong></li>
+          <li>• Imbalance Handling: <strong>SMOTE & Cost Weighting</strong></li>
+          <li>• Primary Metric: <strong>PR-AUC & Recall</strong></li>
+          <li>• Engine Status: <strong class="text-success" id="info-status">Online (FastAPI)</strong></li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <small>© 2026 Fraud Guard ML • Production Ready</small>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      
+      <!-- Main Title & Header Banner -->
+      <header class="app-header">
+        <h1 class="main-title">💳 ML-Based Credit Card Fraud Detection System</h1>
+        <p class="main-description">
+          An intelligent, machine-learning-driven financial transaction screening platform designed to detect fraudulent credit card activity
+          in highly imbalanced transaction streams using advanced classification algorithms, SMOTE resampling, and risk threshold optimization.
+        </p>
+      </header>
+
+      <!-- Navigation Tabs (5 Exact Streamlit Tabs) -->
+      <nav class="tabs-nav">
+        <button class="tab-button active" data-tab="eda">📊 EDA & Fraud Patterns</button>
+        <button class="tab-button" data-tab="benchmark">🏆 Model Benchmarking</button>
+        <button class="tab-button" data-tab="single">🔍 Real-Time Fraud Screener</button>
+        <button class="tab-button" data-tab="batch">📁 Batch Transaction Screening</button>
+        <button class="tab-button" data-tab="threshold">⚖️ Threshold & Financial Simulator</button>
+      </nav>
+
+      <!-- ======================================================== -->
+      <!-- TAB 1: EDA & FRAUD PATTERNS                              -->
+      <!-- ======================================================== -->
+      <section id="tab-eda" class="tab-pane active">
+        <div class="pane-header">
+          <h2>Exploratory Data Analysis & Fraud Dynamics</h2>
+        </div>
+
+        <!-- 4 KPI Metrics Row -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Total Transactions</span>
+            <span class="metric-value">283,726</span>
+            <span class="metric-sub">Deduplicated clean dataset</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Genuine Transactions</span>
+            <span class="metric-value">283,253</span>
+            <span class="metric-sub text-success">99.827% legitimate</span>
+          </div>
+          <div class="metric-card metric-card-danger">
+            <span class="metric-label">Fraudulent Cases</span>
+            <span class="metric-value text-danger">473</span>
+            <span class="metric-sub text-danger">0.173% baseline rate</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Avg Fraud Amount</span>
+            <span class="metric-value">€122.21</span>
+            <span class="metric-sub">vs €88.29 genuine</span>
+          </div>
+        </div>
+
+        <!-- Charts Row 1: Pie + Histogram -->
+        <div class="charts-grid-2col">
+          <div class="chart-card">
+            <h3>Extreme Class Imbalance</h3>
+            <p class="chart-caption">Fraud represents ~0.17% of total volume</p>
+            <div id="chart-class-imbalance" class="plotly-chart"></div>
+          </div>
+          <div class="chart-card">
+            <h3>Transaction Amount Distribution (Log-Scale)</h3>
+            <p class="chart-caption">Log(Amount + 1) distribution by class</p>
+            <div id="chart-amount-dist" class="plotly-chart"></div>
+          </div>
+        </div>
+
+        <!-- Charts Row 2: Top Discriminative Features Shift -->
+        <div class="chart-card full-width">
+          <h3>Top Discriminative PCA Features for Fraud Detection</h3>
+          <p class="chart-caption">
+            Empirical studies demonstrate that features <strong>V14, V17, V12, and V10</strong> exhibit pronounced negative deviations during fraud,
+            while <strong>V4, V11, and V2</strong> exhibit significant positive spikes.
+          </p>
+          <div id="chart-feature-shift" class="plotly-chart"></div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 2: MODEL BENCHMARKING                                -->
+      <!-- ======================================================== -->
+      <section id="tab-benchmark" class="tab-pane">
+        <div class="pane-header">
+          <h2>Algorithm Comparison & Performance Metrics</h2>
+          <p class="pane-subtitle">
+            Because fraud datasets have extreme class imbalance, traditional <strong>Accuracy is misleading</strong> (a dummy model predicting 100% genuine achieves 99.8% accuracy but catches zero fraud).
+            We evaluate models primarily using <strong>PR-AUC (Precision-Recall AUC)</strong>, <strong>Recall (Sensitivity)</strong>, and <strong>F2-Score</strong>.
+          </p>
+        </div>
+
+        <!-- Summary Benchmark Table -->
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>PR-AUC (Primary)</th>
+                <th>ROC-AUC</th>
+                <th>Recall (Detection Rate)</th>
+                <th>Precision</th>
+                <th>F1-Score</th>
+                <th>F2-Score</th>
+                <th>Accuracy</th>
+                <th>Optimal F1 Thresh</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-highlight" data-model="best">
+                <td><strong>⭐ Tuned XGBoost (Champion)</strong></td>
+                <td><strong class="text-success">0.8527</strong></td>
+                <td>0.9845</td>
+                <td><strong>0.8297</strong></td>
+                <td>0.8169</td>
+                <td>0.8233</td>
+                <td>0.8297</td>
+                <td>99.94%</td>
+                <td>0.35</td>
+              </tr>
+              <tr data-model="rf_smote">
+                <td>Random Forest + SMOTE</td>
+                <td>0.8485</td>
+                <td>0.9865</td>
+                <td>0.8355</td>
+                <td>0.7980</td>
+                <td>0.8163</td>
+                <td>0.8277</td>
+                <td>99.93%</td>
+                <td>0.40</td>
+              </tr>
+              <tr data-model="xgb_weighted">
+                <td>XGBoost (Cost-Sensitive Weighted)</td>
+                <td>0.8145</td>
+                <td>0.9744</td>
+                <td>0.7069</td>
+                <td>0.8120</td>
+                <td>0.7558</td>
+                <td>0.7256</td>
+                <td>99.92%</td>
+                <td>0.45</td>
+              </tr>
+              <tr data-model="rf_weighted">
+                <td>Random Forest (Class Weighted)</td>
+                <td>0.8098</td>
+                <td>0.9720</td>
+                <td>0.8195</td>
+                <td>0.7850</td>
+                <td>0.8019</td>
+                <td>0.8124</td>
+                <td>99.91%</td>
+                <td>0.35</td>
+              </tr>
+              <tr data-model="xgb_smote">
+                <td>XGBoost + SMOTE</td>
+                <td>0.8285</td>
+                <td>0.9843</td>
+                <td>0.7833</td>
+                <td>0.8110</td>
+                <td>0.7969</td>
+                <td>0.7887</td>
+                <td>99.93%</td>
+                <td>0.40</td>
+              </tr>
+              <tr data-model="lr_smote">
+                <td>Logistic Regression + SMOTE</td>
+                <td>0.7410</td>
+                <td>0.9818</td>
+                <td>0.8450</td>
+                <td>0.1250</td>
+                <td>0.2178</td>
+                <td>0.3850</td>
+                <td>98.50%</td>
+                <td>0.65</td>
+              </tr>
+              <tr data-model="lr_weighted">
+                <td>Logistic Regression (Class Weighted)</td>
+                <td>0.7393</td>
+                <td>0.9815</td>
+                <td>0.8920</td>
+                <td>0.0650</td>
+                <td>0.1212</td>
+                <td>0.2450</td>
+                <td>96.80%</td>
+                <td>0.70</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Comparison Bar Chart + Confusion Matrix -->
+        <div class="charts-grid-2col">
+          <div class="chart-card">
+            <h3>Metric Comparison Across Models</h3>
+            <p class="chart-caption">Recall vs Precision vs PR-AUC</p>
+            <div id="chart-models-compare" class="plotly-chart"></div>
+          </div>
+          <div class="chart-card">
+            <h3 id="cm-title">Confusion Matrix</h3>
+            <p class="chart-caption">Test Set Confusion Matrix @ θ=<span id="cm-thresh-val">0.35</span></p>
+            <div id="chart-confusion-matrix" class="plotly-chart"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 3: REAL-TIME FRAUD SCREENER                          -->
+      <!-- ======================================================== -->
+      <section id="tab-single" class="tab-pane">
+        <div class="pane-header">
+          <h2>Single Transaction Fraud Screener</h2>
+          <p class="pane-subtitle">Enter transaction parameters or load pre-configured test presets to simulate real-time risk assessment.</p>
+        </div>
+
+        <!-- Presets Row -->
+        <div class="presets-row">
+          <button id="preset-genuine" class="btn-preset btn-preset-green">🟢 Preset: Genuine Coffee & Grocery (€18.50)</button>
+          <button id="preset-edge" class="btn-preset btn-preset-orange" style="background: #e65100; color: white;">⚡ Preset: Borderline Edge Case (€420.00, Risk ~32%)</button>
+          <button id="preset-fraud" class="btn-preset btn-preset-red">🔴 Preset: Suspicious Overnight Drain (€1,890.00)</button>
+          <button id="preset-random" class="btn-preset btn-preset-blue">🎲 Preset: Random Sample from Test Data</button>
+        </div>
+
+        <form id="single-screener-form" class="form-container">
+          
+          <div class="form-section">
+            <h4 class="form-section-title">Core Transaction Metadata</h4>
+            <div class="grid-2col">
+              <div class="form-group">
+                <label for="screener-amount">Transaction Amount (€)</label>
+                <input type="number" id="screener-amount" name="Amount" min="0.01" max="50000.0" step="0.5" value="18.50" required>
+              </div>
+              <div class="form-group">
+                <label for="screener-time">Transaction Time (Seconds Elapsed, 0 to 172,800)</label>
+                <input type="number" id="screener-time" name="Time" min="0" max="200000" step="100" value="42000" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Discriminative Sliders -->
+          <details class="accordion" open>
+            <summary>Key Discriminative Components (V14, V17, V12, V10, V4, V11)</summary>
+            <div class="accordion-content">
+              <div class="grid-3col">
+                <div class="slider-group">
+                  <label for="slider-v14">V14: <span id="val-v14">0.12</span> <small class="text-muted">(High Negative Fraud)</small></label>
+                  <input type="range" id="slider-v14" name="V14" min="-15.0" max="10.0" step="0.1" value="0.12">
+                </div>
+                <div class="slider-group">
+                  <label for="slider-v17">V17: <span id="val-v17">-0.05</span> <small class="text-muted">(High Negative Fraud)</small></label>
+                  <input type="range" id="slider-v17" name="V17" min="-15.0" max="10.0" step="0.1" value="-0.05">
+                </div>
+                <div class="slider-group">
+                  <label for="slider-v12">V12: <span id="val-v12">0.20</span> <small class="text-muted">(Negative Fraud)</small></label>
+                  <input type="range" id="slider-v12" name="V12" min="-15.0" max="10.0" step="0.1" value="0.20">
+                </div>
+                <div class="slider-group">
+                  <label for="slider-v10">V10: <span id="val-v10">-0.10</span> <small class="text-muted">(Negative Fraud)</small></label>
+                  <input type="range" id="slider-v10" name="V10" min="-15.0" max="10.0" step="0.1" value="-0.10">
+                </div>
+                <div class="slider-group">
+                  <label for="slider-v4">V4: <span id="val-v4">0.05</span> <small class="text-muted">(Positive Fraud Indicator)</small></label>
+                  <input type="range" id="slider-v4" name="V4" min="-10.0" max="15.0" step="0.1" value="0.05">
+                </div>
+                <div class="slider-group">
+                  <label for="slider-v11">V11: <span id="val-v11">0.00</span> <small class="text-muted">(Positive Fraud Indicator)</small></label>
+                  <input type="range" id="slider-v11" name="V11" min="-10.0" max="15.0" step="0.1" value="0.00">
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- Remaining Latent Features -->
+          <details class="accordion">
+            <summary>Remaining Latent Features (V1–V28)</summary>
+            <div class="accordion-content">
+              <p class="caption">PCA features are normalized and centered near 0.</p>
+              <div class="grid-4col" id="remaining-pca-inputs">
+                <!-- Injected via script.js -->
+              </div>
+            </div>
+          </details>
+
+          <button type="submit" id="btn-analyze-risk" class="btn-primary-large">
+            ⚡ Analyze Transaction Risk
+          </button>
+        </form>
+
+        <!-- Risk Assessment Results Display -->
+        <div id="screener-results" class="results-card">
+          <h3 class="results-title">Risk Assessment Results</h3>
+          <div class="results-grid">
+            
+            <!-- Left: Plotly Gauge -->
+            <div class="gauge-container">
+              <div id="chart-gauge" class="plotly-gauge"></div>
+            </div>
+
+            <!-- Right: Decision & Action Badge -->
+            <div class="decision-container">
+              <div id="decision-badge-container">
+                <!-- Injected dynamically: fraud-badge-alert / fraud-badge-review / fraud-badge-safe -->
+              </div>
+
+              <div class="decision-metadata">
+                <p>• Evaluated Model: <strong id="res-model-name">⭐ Best Overall Model</strong></p>
+                <p>• Decision Threshold (θ): <strong id="res-threshold">0.35</strong></p>
+                <p>• Computed Score: <strong id="res-score">0.0076 (0.76%)</strong></p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 4: BATCH TRANSACTION SCREENING                       -->
+      <!-- ======================================================== -->
+      <section id="tab-batch" class="tab-pane">
+        <div class="pane-header">
+          <h2>Batch CSV Transaction Screening</h2>
+          <p class="pane-subtitle">Upload a CSV file containing transactions (<code>Time</code>, <code>Amount</code>, <code>V1</code>..<code>V28</code>) to triage transactions in bulk.</p>
+        </div>
+
+        <div class="batch-controls-grid">
+          <div class="form-group">
+            <label for="batch-file-input">Upload Transaction File (CSV)</label>
+            <input type="file" id="batch-file-input" accept=".csv">
+          </div>
+          <div class="batch-btn-group">
+            <button id="btn-load-quick-sample" class="btn-secondary">📂 Load Quick Sample (1,000 Txns)</button>
+            <button id="btn-download-test-sample" class="btn-secondary">📥 Download Test CSV (15 Txns)</button>
+          </div>
+        </div>
+
+        <div id="batch-results-wrapper" class="batch-results-hidden">
+          
+          <!-- KPI Row -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Transactions Scanned</span>
+              <span class="metric-value" id="batch-kpi-total">1,000</span>
+            </div>
+            <div class="metric-card metric-card-danger">
+              <span class="metric-label">Flagged as Fraud</span>
+              <span class="metric-value text-danger" id="batch-kpi-flagged">14</span>
+              <span class="metric-sub text-danger" id="batch-kpi-rate">1.40% of batch</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Prevented Loss Volume</span>
+              <span class="metric-value text-warning" id="batch-kpi-volume">€18,450.00</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Approved Count</span>
+              <span class="metric-value text-success" id="batch-kpi-approved">986</span>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-card-header">
+              <h3>Scored Batch Sample (Top Highest Risk First)</h3>
+              <button id="btn-export-batch-csv" class="btn-primary">📥 Download Full Scored Batch Report (CSV)</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="batch-table">
+                <thead>
+                  <tr>
+                    <th>Txn ID</th>
+                    <th>Decision</th>
+                    <th>Fraud Probability</th>
+                    <th>Risk Level</th>
+                    <th>Amount (€)</th>
+                    <th>Time (s)</th>
+                    <th>V14</th>
+                    <th>V17</th>
+                    <th>V12</th>
+                  </tr>
+                </thead>
+                <tbody id="batch-table-body">
+                  <!-- Populated by script.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 5: FINANCIAL COST & THRESHOLD SIMULATOR              -->
+      <!-- ======================================================== -->
+      <section id="tab-threshold" class="tab-pane">
+        <div class="pane-header">
+          <h2>Financial Impact & Decision Threshold Simulator</h2>
+          <p class="pane-subtitle">
+            In financial institutions, misclassification carries asymmetrical costs:
+            <br>• <strong>False Negative (Missed Fraud):</strong> Direct loss of the stolen amount + chargeback fee (€150 – €500).
+            <br>• <strong>False Positive (False Alarm):</strong> Analyst manual investigation cost + consumer friction (€10 – €30).
+            <br>Use this simulator to identify the mathematically optimal threshold that minimizes overall financial loss.
+          </p>
+        </div>
+
+        <div class="grid-2col simulator-controls">
+          <div class="form-group">
+            <label for="sim-cost-fn">Cost of False Negative (Missed Fraud €): <strong id="val-cost-fn">€250</strong></label>
+            <input type="range" id="sim-cost-fn" min="50" max="1000" step="25" value="250" class="slider-blue">
+          </div>
+          <div class="form-group">
+            <label for="sim-cost-fp">Cost of False Positive (Manual Review €): <strong id="val-cost-fp">€20</strong></label>
+            <input type="range" id="sim-cost-fp" min="5" max="100" step="5" value="20" class="slider-blue">
+          </div>
+        </div>
+
+        <div class="callout-card callout-optimal" id="optimal-callout">
+          <h4>💡 Optimal Financial Threshold Found</h4>
+          <p>
+            Operating at decision threshold <strong>θ = <span id="opt-thresh-val">0.14</span></strong> minimizes banking cost, achieving 
+            Total Loss = <strong>€<span id="opt-loss-val">14,240.00</span></strong> across test volume.
+          </p>
+        </div>
+
+        <div class="chart-card full-width">
+          <h3>Total Business Cost vs Decision Threshold</h3>
+          <p class="chart-caption">As threshold increases, false alarms decline while missed breach costs escalate.</p>
+          <div id="chart-cost-simulation" class="plotly-chart"></div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <p>ML-Based Credit Card Fraud Detection System | Implemented in Python, Scikit-learn, XGBoost, Imbalanced-learn & FastAPI.</p>
+      </footer>
+
+    </main>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

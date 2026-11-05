@@ -1,0 +1,18 @@
+{
+    "model_name": "Tuned XGBoost Champion",
+    "optimal_threshold": 0.7093,
+    "default_threshold": 0.5,
+    "test_pr_auc": 0.6911,
+    "test_roc_auc": 0.9719,
+    "recall_tuned": 0.8169,
+    "precision_tuned": 0.4531,
+    "f2_tuned": 0.7039,
+    "scale_pos_weight": 599.02,
+    "top_features": [
+        "V14",
+        "V4",
+        "V12",
+        "V10",
+        "V17"
+    ]
+}

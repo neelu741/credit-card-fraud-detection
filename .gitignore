@@ -1,0 +1,30 @@
+# Data files (ignore massive 150MB raw dataset)
+data/*.csv
+data/*.zip
+*.csv
+!data/test_sample.csv
+
+# Python byte-code and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Machine Learning models
+# Allow final_model.joblib (it is only 134 KB, well under GitHub's 100MB limit)
+!models/final_model.joblib
+!models/threshold_config.json
