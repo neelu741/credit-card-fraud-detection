@@ -15,8 +15,12 @@ def load_data(file_path="data/creditcard.csv"):
     candidate_paths = [
         file_path,
         os.path.join("..", file_path),
+        os.path.join("..", "data", os.path.basename(file_path)),
         os.path.join(os.path.dirname(__file__), "..", file_path),
-        "creditcard.csv"
+        os.path.join(os.path.dirname(__file__), "..", "data", os.path.basename(file_path)),
+        "creditcard.csv",
+        os.path.abspath(os.path.join(os.getcwd(), "data", os.path.basename(file_path))),
+        os.path.abspath(os.path.join(os.getcwd(), "..", "data", os.path.basename(file_path)))
     ]
     resolved_path = None
     for p in candidate_paths:
